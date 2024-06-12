@@ -16,7 +16,7 @@ class Dashboard extends StatefulWidget{
 
 class _DashboardState extends State<Dashboard> {
   String nik="", token = "", name ="", dept ="", imgUrl="";
-  late Future<Presensi> futurePresensi;
+  bool isMasuk = true;
 
   Future<void> getUserData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -61,10 +61,75 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
+  Future<void> saveStatusMasuk() async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setBool('isMasuk', isMasuk);
+  }
+
+  // Metode untuk memuat status check-in/check-out
+  Future<void> loadStatusMasuk() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      isMasuk = prefs.getBool('isMasuk') ?? true;
+    });
+  }
+
+  Future<void> recordAttendance() async {
+    //tutup showbottomsheet
+    Navigator.pop(context);
+    //end point
+    const String endpointMasuk = 'https://presensi.spilme.id/entry';
+    const String endpointKeluar = 'https://presensi.spilme.id/exit';
+
+    final endpoint = isMasuk ? endpointMasuk : endpointKeluar;
+    final requestBody = isMasuk
+        ? {
+      'nik': nik,
+      'tanggal': getTodayDate(),
+      'jam_masuk': getTime(),
+      'lokasi_masuk': 'polbeng',
+    }
+        : {
+      'nik': nik,
+      'tanggal': getTodayDate(),
+      'jam_keluar': getTime(),
+      'lokasi_keluar': 'polbeng',
+    };
+
+    final response = await http.post(
+      Uri.parse(endpoint),
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(requestBody),
+    );
+
+    if (response.statusCode == 200) {
+      final responseBody = jsonDecode(response.body);
+      // ignore: use_build_context_synchronously
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(responseBody['message'])),
+      );
+      setState(() {
+        isMasuk = !isMasuk;
+        saveStatusMasuk(); // simpan status absensi
+      });
+      //refresh informasi absensi
+      fetchPresensi(nik, getTodayDate());
+    } else {
+      // ignore: use_build_context_synchronously
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to record attendance')),
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     getUserData();
+    loadStatusMasuk();
   }
 
   @override
@@ -275,7 +340,7 @@ class _DashboardState extends State<Dashboard> {
                                         Row(
                                           children: <Widget>[
                                             Text(
-                                              'Presensi Masuk',
+                                              'Presensi ${isMasuk ? 'Masuk' : 'Pulang'}',
                                               style: TextStyle(
                                                   fontWeight: FontWeight.bold,
                                                   fontSize: 25.sp),
@@ -300,13 +365,13 @@ class _DashboardState extends State<Dashboard> {
                                                 CrossAxisAlignment.start,
                                                 children: <Widget>[
                                                   Text(
-                                                    "Tanggal Masuk",
+                                                    'Tanggal ${isMasuk ? 'Masuk' : 'Pulang'}',
                                                     style: TextStyle(
                                                       fontWeight: FontWeight.bold,
                                                       fontSize: 18.sp,
                                                     ),
                                                   ),
-                                                  Text("Senin, 23 Agustus 2023",
+                                                  Text(getToday(),
                                                       style: TextStyle(
                                                           fontSize: 15.sp,
                                                           color: Colors.grey)),
@@ -333,13 +398,13 @@ class _DashboardState extends State<Dashboard> {
                                                 CrossAxisAlignment.start,
                                                 children: <Widget>[
                                                   Text(
-                                                    "Jam Masuk",
+                                                    'Jam ${isMasuk ? 'Masuk' : 'Pulang'}',
                                                     style: TextStyle(
                                                       fontWeight: FontWeight.bold,
                                                       fontSize: 18.sp,
                                                     ),
                                                   ),
-                                                  Text("07:03:23",
+                                                  Text(getTime(),
                                                       style: TextStyle(
                                                           fontSize: 15.sp,
                                                           color: Colors.grey)),
@@ -412,13 +477,13 @@ class _DashboardState extends State<Dashboard> {
                                                     BorderRadius.circular(
                                                         10.r)),
                                               ),
-                                              onPressed: () {},
+                                              onPressed: recordAttendance,
                                               child: Row(
                                                 mainAxisAlignment:
                                                 MainAxisAlignment.center,
                                                 children: <Widget>[
                                                   Text(
-                                                    "Hadir",
+                                                    "Simpan",
                                                     style: TextStyle(
                                                         color: Colors.white,
                                                         fontWeight:
