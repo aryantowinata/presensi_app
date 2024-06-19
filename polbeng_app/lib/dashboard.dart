@@ -511,7 +511,7 @@ class _DashboardState extends State<Dashboard> {
                             ),
                             SizedBox(width: 5.w),
                             Text(
-                              "Tekan untuk Presensi Keluar",
+                              "Tekan untuk Presensi ${isMasuk?'Masuk':'Pulang'}",
                               style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
